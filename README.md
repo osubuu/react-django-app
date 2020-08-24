@@ -36,17 +36,20 @@ git clone git@github.com:osubuu/react-django-app.git
 cd react-django-app/backend
 pipenv install
 
+# activate your virtual environment
+pipenv shell
+
 # start Django server
 cd server
 python manage.py runserver
 ```
 
 
-3. Once your server is running, we will now set up the frontend. Go into your frontend folder until make sure you are on the same level as `package.json`. Run the following commands to set up your dependencies and start your React server. Your server will be running on [http://localhost:3000](http://localhost:3000)
+3. Once your server is running, **open up a new terminal** and we will now set up the fronten there. Go into your frontend folder until you are on the same level as `package.json`. Run the following commands to set up your dependencies and start your React server. Your server will be running on [http://localhost:3000](http://localhost:3000).
 
 ```
-# assuming you are at the level of the Django server
-cd ../../frontend
+# assuming you are still at the level of the Django server
+cd ../frontend
 
 # install dependencies
 yarn install
@@ -59,7 +62,7 @@ OR
 npm run start
 ```
 
-4. Access the application on your web browser by going to [http://localhost:3000](http://localhost:3000)
+4. Once both of your servers are up and running, access the application on your web browser by going to [http://localhost:3000](http://localhost:3000).
 
 
 ## Built With
