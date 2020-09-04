@@ -71,23 +71,15 @@ class ReservedBookViewSet(viewsets.ModelViewSet):
         serializer = ReservedBookSerializer(reserved_book)
         return Response(serializer.data)
 
-    def partial_update(self, request, pk=None):
+    def destroy(self, request, pk=None):
         reserved_book = get_object_or_404(ReservedBook.objects, id=pk)
         book = get_object_or_404(Book.objects, id=reserved_book.book_id)
-        purpose = request.data.get('purpose')
 
-        if purpose is None:
-            return Response(data='Invalid body. Please make sure all required fields are present', status=status.HTTP_400_BAD_REQUEST)
+        # delete reserved book
+        reserved_book.delete()
 
-        # unreserve a book
-        if purpose == 'unreserve':
-            # delete reserved book
-            reserved_book.delete()
+        # increment quantity on book
+        book.quantity = book.quantity + 1
+        book.save()
 
-            # increment quantity on book
-            book.quantity = book.quantity + 1
-            book.save()
-
-            return Response({})
-        else:
-            return Response(data=f"Cannot unreserve '{book.title}'", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({})
