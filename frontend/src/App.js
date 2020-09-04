@@ -9,7 +9,7 @@ function App() {
   const [books, setBooks] = useState([]);
   const [reservedBooks, setReservedBooks] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalBooks, setTotalBooks] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [error, setError] = useState('');
 
@@ -88,7 +88,7 @@ function App() {
         const result = await response.json();
         setBooks(result.results);
         setPage(page);
-        setTotalPages(result.count);
+        setTotalBooks(result.count);
       } catch (err) {
         setError(err.message || 'Failed to fetch books');
       }
@@ -138,7 +138,7 @@ function App() {
 
       <Pagination
         page={page}
-        totalPages={totalPages}
+        totalBooks={totalBooks}
         setPage={setPage}
         paginationLimit={PAGINATION_LIMIT}
       />
