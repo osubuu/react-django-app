@@ -34,11 +34,7 @@ function App() {
   const unreserveBook = async (reservedBook) => {
     try {
       const response = await fetch(`${API_URL}/reserved/${reservedBook.id}/`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          purpose: 'unreserve',
-        })
+        method: 'DELETE',
       });
       const result = await response.json();
       // update books and reserved books manually in state to avoid making redundant calls to the API
