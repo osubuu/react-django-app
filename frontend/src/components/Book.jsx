@@ -4,7 +4,7 @@ const Book = ({ data, reserveBook, disabled, buttonName, amount }) => {
   const { title, author } = data;
   return (
     <li>
-      <span>{title} by {author} ({amount})</span>
+      <span>{title} by {author} {amount && `(${amount})`}</span>
       <button disabled={disabled} onClick={reserveBook}>{buttonName}</button>
     </li>
   );

@@ -4,8 +4,8 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework import filters, status
 from rest_framework.response import Response
 
-from .serializers import BookSerializer
-from .models import Book
+from .serializers import BookSerializer, ReservedBookSerializer
+from .models import Book, ReservedBook
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -34,42 +34,52 @@ class BookViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['title']
 
-    # 3. Update reserved quantity via PATCH method through same endpoint as everything else
-    def patch(self, request, *args, **kwargs):
-        book = get_object_or_404(Book.objects, id=request.data['id'])
-        purpose = request.data.get('reserve')
 
-        if purpose is None:
-            return Response(data='Invalid body. Please make sure all required fields are present', status=status.HTTP_400_BAD_REQUEST)
+class ReservedBookViewSet(viewsets.ModelViewSet):
+    # get all reserved books (sort by ID for simplicity)
+    queryset = ReservedBook.objects.all().order_by('id')
+    serializer_class = ReservedBookSerializer
 
-        data = {}
-        if purpose == True:
-            if book.quantity == 0:
-                return Response(data=f"No more '{book.title}' books available to reserve", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            data = {
-                "quantity": book.quantity - 1,
-                "quantity_reserved": book.quantity_reserved + 1
-            }
-        else:
-            if book.quantity_reserved == 0:
-                return Response(data=f"No '{book.title}' books are currently reserved", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            data = {
-                "quantity": book.quantity + 1,
-                "quantity_reserved": book.quantity_reserved - 1
-            }
+    def get_queryset(self):
+        reserved_books = ReservedBook.objects.all().order_by('id')
 
-        serializer = BookSerializer(book, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+        # get the title and author of the reserved book from the its book ID
+        for reserved_book in reserved_books:
+            book = Book.objects.get(id=reserved_book.book_id)
+            reserved_book.title = book.title
+            reserved_book.author = book.author
 
+        return reserved_books
+
+    def create(self, request):
+        book_id = request.data.get('bookId')
+        book = get_object_or_404(Book.objects, id=book_id)
+
+        if book.quantity == 0:
+            return Response(data=f"No more '{book.title}' books available to reserve", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # de-increment book quantity
+        book.quantity = book.quantity - 1
+        book.save()
+
+        # create new reserved book
+        reserved_book = ReservedBook.objects.create(book_id=book_id)
+
+        # prepare response
+        reserved_book.title = book.title
+        reserved_book.author = book.author
+        serializer = ReservedBookSerializer(reserved_book)
         return Response(serializer.data)
 
-    # 4. Filter for reserved books, if any
-    def get_queryset(self):
-        queryset = Book.objects.all().order_by('id')
-        reserved = self.request.query_params.get('reserved')
+    def destroy(self, request, pk=None):
+        reserved_book = get_object_or_404(ReservedBook.objects, id=pk)
+        book = get_object_or_404(Book.objects, id=reserved_book.book_id)
 
-        if reserved == 'true':
-            queryset = queryset.filter(quantity_reserved__gt=0)
+        # delete reserved book
+        reserved_book.delete()
 
-        return queryset
+        # increment quantity on book
+        book.quantity = book.quantity + 1
+        book.save()
+
+        return Response({})

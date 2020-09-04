@@ -2,63 +2,74 @@ import React, { useState, useEffect } from 'react';
 import { Book, Pagination, Search } from './components';
 import './App.css';
 
-const API_URL = 'http://localhost:8000/books';
+const API_URL = 'http://localhost:8000';
 const PAGINATION_LIMIT = 3;
 
 function App() {
   const [books, setBooks] = useState([]);
   const [reservedBooks, setReservedBooks] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalBooks, setTotalBooks] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [error, setError] = useState('');
 
-  const reserveBook = async (bookId, wantsToReserve) => {
+  const reserveBook = async (bookId) => {
     try {
-      const response = await fetch(`${API_URL}/`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_URL}/reserved/`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: bookId,
-          reserve: wantsToReserve, // true = reserve, false = unreserve
+          bookId: bookId,
         })
       });
       const result = await response.json();
       // update books and reserved books manually in state to avoid making redundant calls to the API
-      updateBooks(result);
-      updatedReservedBooks(result, wantsToReserve);
+      updateBooks(bookId, true);
+      updateReservedBooks(result, true)
     } catch (err) {
-      setError(err.message || 'Failed to reserve or unreserve a book');
+      setError(err.message || 'Failed to reserve a book');
     }
   };
 
-  const updateBooks = (updatedBook) => {
-    const bookIndex = books.findIndex(book => book.id === updatedBook.id)
-    const updatedBooks = [...books];
-    updatedBooks[bookIndex] = updatedBook;
-    setBooks(updatedBooks);
+  const unreserveBook = async (reservedBook) => {
+    try {
+      const response = await fetch(`${API_URL}/reserved/${reservedBook.id}/`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      // update books and reserved books manually in state to avoid making redundant calls to the API
+      updateBooks(reservedBook.book_id, false);
+      updateReservedBooks(reservedBook, false)
+    } catch (err) {
+      setError(err.message || 'Failed to unreserve a book');
+    }
   };
 
-  const updatedReservedBooks = (updatedBook, wantsToReserve) => {
-    const reservedBookIndex = reservedBooks.findIndex(reservedBook => reservedBook.id === updatedBook.id);
+  const updateBooks = (bookId, reserve) => {
+    const bookIndex = books.findIndex(book => book.id === bookId);
+    // only manually update the books in state if they are currently present on the page
+    if (bookIndex >= 0) {
+      const updatedBooks = [...books];
+      const currentQuantity = updatedBooks[bookIndex].quantity;
+      updatedBooks[bookIndex] = {
+        ...updatedBooks[bookIndex],
+        quantity: reserve ? currentQuantity - 1 : currentQuantity + 1,
+      };
+      setBooks(updatedBooks);
+    }
+  };
+
+  const updateReservedBooks = (updatedBook, reserve) => {
     const updatedReservedBooks = [...reservedBooks];
 
     // if user is reserving a book
-    if (wantsToReserve) {
-      if (reservedBookIndex >= 0) {
-        updatedReservedBooks[reservedBookIndex] = updatedBook;
-      } else {
-        updatedReservedBooks.push(updatedBook);
-      }
+    if (reserve) {
+      updatedReservedBooks.push(updatedBook);
     }
     // otherwise user is unreserving a book
     else {
-      const quantityReservedRemaining = reservedBooks[reservedBookIndex].quantity_reserved - 1;
-      if (quantityReservedRemaining === 0) {
-        updatedReservedBooks.splice(reservedBookIndex, 1);
-      } else {
-        updatedReservedBooks[reservedBookIndex].quantity_reserved = quantityReservedRemaining;
-      }
+      const removedBookIndex = reservedBooks.indexOf(updatedBook);
+      updatedReservedBooks.splice(removedBookIndex, 1);
     }
 
     // sort reserved books by increasing ID,
@@ -71,13 +82,13 @@ function App() {
   useEffect(() => {
     const getBooks = async () => {
       try {
-        const response = await fetch(`${API_URL}/?limit=${PAGINATION_LIMIT}&page=${page}&search=${searchInput}`, {
+        const response = await fetch(`${API_URL}/books?limit=${PAGINATION_LIMIT}&page=${page}&search=${searchInput}`, {
           method: 'GET',
         });
         const result = await response.json();
         setBooks(result.results);
         setPage(page);
-        setTotalPages(result.count);
+        setTotalBooks(result.count);
       } catch (err) {
         setError(err.message || 'Failed to fetch books');
       }
@@ -90,7 +101,7 @@ function App() {
   useEffect(() => {
     const getReservedBooks = async () => {
       try {
-        const response = await fetch(`${API_URL}/?reserved=true`, {
+        const response = await fetch(`${API_URL}/reserved`, {
           method: 'GET',
         });
         const result = await response.json();
@@ -120,14 +131,14 @@ function App() {
             disabled={book.quantity === 0}
             amount={book.quantity}
             buttonName={'Reserve'}
-            reserveBook={() => reserveBook(book.id, true)}
+            reserveBook={() => reserveBook(book.id)}
           />
         )}
       </ul>
 
       <Pagination
         page={page}
-        totalPages={totalPages}
+        totalBooks={totalBooks}
         setPage={setPage}
         paginationLimit={PAGINATION_LIMIT}
       />
@@ -135,13 +146,11 @@ function App() {
       <h1>Reserved Books</h1>
       <ul>
         {reservedBooks.map(reservedBook => {
-          return reservedBook.quantity_reserved > 0 && <Book
-            key={reservedBook.id}
+          return <Book
+            key={`reserved-${reservedBook.id}`}
             data={reservedBook}
-            disabled={reservedBook.quantity_reserved === 0}
-            amount={reservedBook.quantity_reserved}
             buttonName={'Unreserve'}
-            reserveBook={() => reserveBook(reservedBook.id, false)}
+            reserveBook={() => unreserveBook(reservedBook)}
           />
         })}
       </ul>
